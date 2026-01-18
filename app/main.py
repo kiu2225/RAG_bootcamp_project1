@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -80,11 +81,23 @@ app.include_router(documents.router)
 app.include_router(query.router)
 
 
-@app.get("/", response_class=HTMLResponse, tags=["Root"])
-async def root():
-    """Serve the main UI."""
-    with open("static/index.html") as f:
-        return f.read()
+@app.get("/", tags=["Root"])
+async def root(request: Request):
+    """Serve UI for browsers; otherwise return API metadata as JSON."""
+    accept = request.headers.get("accept", "")
+    if "text/html" in accept:
+        index_path = Path("static") / "index.html"
+        if index_path.exists():
+            return HTMLResponse(index_path.read_text(encoding="utf-8"))
+
+    return {
+        "message": f"{settings.app_name} API",
+        "version": __version__,
+        "docs": "/docs",
+        "redoc": "/redoc",
+        "openapi": "/openapi.json",
+        "health": "/health",
+    }
 
 
 @app.exception_handler(Exception)
